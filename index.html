@@ -1,0 +1,125 @@
+<!doctype html><html lang=en><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>hair clip (bluetooth)</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0 auto;max-width:480px;padding:14px;font:15px system-ui,sans-serif;background:#f3e4f1;color:#222}
+header{display:flex;justify-content:space-between;font-size:12px;margin-bottom:14px}
+#st{color:#888}
+h2{font-size:12px;font-weight:400;color:#777;margin:14px 0 6px}
+.row{position:relative;display:flex;align-items:center;gap:10px;background:#fffa;border-radius:12px;padding:8px;margin:12px 0;border:2px solid transparent}
+.row.now{border-color:#444}
+.row canvas{flex:1;min-width:0;height:56px;object-fit:cover}
+.row i{position:absolute;top:-9px;left:12px;font:10px system-ui;background:#444;color:#fff;border-radius:6px;padding:1px 6px}
+canvas{width:100%;image-rendering:pixelated;border-radius:4px;display:block}
+input[type=text]{width:100%;font:inherit;padding:9px;border:1px solid #bbb;border-radius:8px;background:#fff}
+input[type=color]{width:100%;height:44px;border:0;padding:0;border-radius:8px;background:none}
+label{display:block;font-size:12px;color:#777;margin-top:12px}
+small{color:#999;font-size:11px}
+.two{display:flex;gap:12px}.two label{flex:1}
+.sh{display:flex;gap:8px}
+.sh button{flex:1;height:44px;font-size:18px;border:1px solid #ccc;border-radius:8px;background:#fff}
+.sh .on{border-color:#222;background:#e8e8e8}
+a{color:#555;font-size:13px}
+.big{font:inherit;font-size:17px;padding:14px;border-radius:12px;border:0;background:#222;color:#fff;width:100%}
+input[type=range]{width:100%}
+.sh button.q{font-size:13px}
+</style></head><body>
+<header><b>hair clip</b><span id=st>○ not connected</span></header>
+<div id=v></div>
+<script>
+const $=s=>document.querySelector(s),E=['—','♥','☺','☹','···'];
+const SP=[0,.033,.066,.133];
+let bt,dev,cmC,stC,chain=Promise.resolve(),st={cur:0,m:[]},sel=-1,last='',pt;
+const SV='6e5a0001-b5a3-f393-e0a9-e50e24dcca9e',CM='6e5a0002-b5a3-f393-e0a9-e50e24dcca9e',SA='6e5a0003-b5a3-f393-e0a9-e50e24dcca9e';
+const G={"a":[0,0,0,14,1,15,17,15],"b":[0,16,16,22,25,17,17,30],"c":[0,0,0,14,16,16,17,14],"d":[0,1,1,13,19,17,17,15],"e":[0,0,0,14,17,31,16,14],"f":[0,6,9,8,28,8,8,8],"g":[2,15,17,17,17,15,1,14],"h":[0,16,16,22,25,17,17,17],"i":[0,4,0,12,4,4,4,14],"j":[0,2,0,6,2,2,18,12],"k":[0,16,16,18,20,24,20,18],"l":[0,12,4,4,4,4,4,14],"m":[0,0,0,26,21,21,21,21],"n":[0,0,0,22,25,17,17,17],"o":[0,0,0,14,17,17,17,14],"p":[2,22,25,17,17,30,16,16],"q":[2,13,19,17,17,15,1,1],"r":[0,0,0,22,25,16,16,16],"s":[0,0,0,15,16,14,1,30],"t":[0,8,8,28,8,8,9,6],"u":[0,0,0,17,17,17,19,13],"v":[0,0,0,17,17,17,10,4],"w":[0,0,0,17,21,21,21,10],"x":[0,0,0,17,10,4,10,17],"y":[2,17,17,17,17,15,1,14],"z":[0,0,0,31,2,4,8,31],"0":[0,14,17,19,21,25,17,14],"1":[0,4,12,4,4,4,4,14],"2":[0,14,17,1,2,4,8,31],"3":[0,30,1,1,14,1,1,30],"4":[0,2,6,10,18,31,2,2],"5":[0,31,16,30,1,1,17,14],"6":[0,6,8,16,30,17,17,14],"7":[0,31,1,2,4,8,8,8],"8":[0,14,17,17,14,17,17,14],"9":[0,14,17,17,15,1,2,12],"!":[0,4,4,4,4,4,0,4],":":[0,0,12,12,0,12,12,0],"(":[0,2,4,8,8,8,4,2],")":[0,8,4,2,2,2,4,8]},SH=[[0,0,10,31,31,31,14,4],[0,0,0,0,10,0,17,14],[0,0,0,0,10,0,14,17],[0,0,0,0,0,0,0,21]];
+const lock=f=>{const r=chain.then(f);chain=r.catch(()=>{});return r};
+const put=async q=>{const d=new TextEncoder().encode(q);await(cmC.writeValueWithResponse?cmC.writeValueWithResponse(d):cmC.writeValue(d))};
+const cmd=q=>lock(()=>put(q));
+const rd=i=>lock(async()=>{await put('get?i='+i);return JSON.parse(new TextDecoder().decode(await stC.readValue()))});
+const pin=()=>{try{return localStorage.pin||'1234'}catch(e){return '1234'}};
+function gate(msg){sel=-1;last='';ok(0);$('#v').innerHTML=`<h2>${msg||'turn Bluetooth on and stay near the clip'}</h2><label>pin<input type=text id=pn inputmode=numeric value="${pin()}"></label><p><button class=big id=cn>connect to clip</button></p>`}
+async function pull(){const h=await rd(-1),m=[];for(let i=0;i<(h.n||5);i++)m.push(await rd(i));return{cur:h.cur,bri:h.bri,a:h.a,m}}
+async function connect(){
+  const k=$('#pn').value;try{localStorage.pin=k}catch(e){}
+  if(!navigator.bluetooth){gate('this browser has no Web Bluetooth. open this page in the Bluetooth Browser app');return}
+  try{
+    dev=await navigator.bluetooth.requestDevice({filters:[{services:[SV]}]});
+    dev.addEventListener('gattserverdisconnected',()=>gate('connection lost'));
+    $('#v').innerHTML='<h2>connecting…</h2>';
+    const s=await(await dev.gatt.connect()).getPrimaryService(SV);
+    cmC=await s.getCharacteristic(CM);stC=await s.getCharacteristic(SA);
+    await cmd('auth?k='+k);
+    const j=await pull();
+    if(!j.a){dev.gatt.disconnect();gate('wrong pin');return}
+    ok(1);st=j;last=JSON.stringify(j);list();
+  }catch(e){gate('could not connect, try again')}
+}
+const ok=v=>$('#st').textContent=v?'● connected':'○ not connected';
+function unit(m){const u=[...m.t.toLowerCase()].map(c=>G[c]||null);u.push(null,m.s?SH[m.s-1]:null,null);return u}
+function band(c,m,off){
+  const x=c.getContext('2d'),S=m.z,w=6*S,u=unit(m),W=u.length*w,oy=(c.height-9*S)/2,mv=SP[m.v]>0;
+  x.fillStyle='#'+m.b;x.fillRect(0,0,c.width,c.height);x.fillStyle='#'+m.f;
+  for(let o=mv?-(off%W):(c.width-(u.length-1)*w+S)/2;o<c.width;o+=W){u.forEach((g,i)=>{
+    const gx=o+i*w;if(!g||gx<-w||gx>c.width)return;
+    for(let r=0;r<7;r++)for(let k=0;k<5;k++)if((g[1+r]>>(4-k))&1)x.fillRect(gx+k*S,oy+(r+g[0])*S,S,S)});
+    if(!mv)break}
+}
+function size(c){c.width=320;c.height=170}
+function list(){
+  sel=-1;
+  $('#v').innerHTML='<h2>your messages</h2>'+st.m.map((m,i)=>`<div class="row${i==st.cur?' now':''}" data-i="${i}">${i==st.cur?'<i>showing now</i>':''}<canvas></canvas><input type=checkbox switch data-t="${i}" ${m.on?'checked':''}></div>`).join('')+`<h2>brightness</h2><input type=range id=br min=20 max=255 value="${st.bri}"><h2>tap a message to edit it. BOOT on the clip moves to the next message. switch a message off to skip it.</h2>`;
+  document.querySelectorAll('.row canvas').forEach((c,i)=>{size(c);band(c,st.m[i],0)});
+}
+function edit(i){
+  sel=i;const m=st.m[i];
+  $('#v').innerHTML=`<a id=back href=#>‹ messages</a> <span style="float:right;font-size:12px">message ${i+1}</span>
+<h2>preview</h2><canvas id=pv></canvas>
+<label>text<input type=text id=tx maxlength=40 autocapitalize=off autocomplete=off value="${m.t}"></label>
+<small>letters, numbers, spaces and ! : ( )</small>
+<div class=two><label>text color<input type=color id=fg value="#${m.f}"></label><label>background<input type=color id=bg value="#${m.b}"></label></div>
+<label>shape</label><div class=sh>${E.map((s,k)=>`<button data-k="${k}"${m.s==k?' class=on':''}>${s}</button>`).join('')}</div>
+<label>size ${m.z}<input type=range id=zz min=4 max=16 value="${m.z}"></label>
+<label>speed</label><div class=sh>${['still','slow','medium','fast'].map((s,k)=>`<button class="q${m.v==k?' on':''}" data-v="${k}">${s}</button>`).join('')}</div>
+<label>quick fill</label><div class=sh><button class=q data-q=0>HANGRY</button><button class=q data-q=1>FED</button></div>`;
+  size($('#pv'));push(i,'&show=1',1);
+}
+function push(i,x,now){
+  const m=st.m[i];clearTimeout(pt);
+  const go=()=>cmd(`set?i=${i}&t=${encodeURIComponent(m.t)}&s=${m.s}&z=${m.z}&v=${m.v}&f=${m.f}&b=${m.b}&on=${m.on}${x||''}`).then(()=>ok(1),()=>ok(0));
+  now?go():pt=setTimeout(go,200);
+}
+$('#v').onclick=e=>{
+  const t=e.target;
+  if(t.id=='cn'){connect();return}
+  if(t.dataset.t!==undefined){const i=+t.dataset.t;st.m[i].on=t.checked?1:0;push(i,'',1);return}
+  if(t.id=='back'){e.preventDefault();sel=-1;last='';refresh(1);return}
+  if(t.dataset.k!==undefined){
+    st.m[sel].s=+t.dataset.k;
+    document.querySelectorAll('.sh button[data-k]').forEach(b=>b.classList.toggle('on',b==t));
+    push(sel,'&show=1',1);return}
+  if(t.dataset.v!==undefined){st.m[sel].v=+t.dataset.v;edit(sel);return}
+  if(t.dataset.q!==undefined){Object.assign(st.m[sel],[{t:'hangry',s:3,f:'000000',b:'F4C5FB'},{t:'fed',s:2,f:'000000',b:'9BF03C'}][+t.dataset.q]);edit(sel);return}
+  const r=t.closest('.row');if(r&&sel<0)edit(+r.dataset.i);
+};
+$('#v').oninput=e=>{
+  const id=e.target.id,m=st.m[sel];
+  if(id=='br'){clearTimeout(bt);bt=setTimeout(()=>cmd('bri?v='+e.target.value).catch(()=>ok(0)),100);return}
+  if(id=='zz'){m.z=+e.target.value;e.target.parentNode.firstChild.textContent='size '+m.z}
+  else if(id=='tx')e.target.value=m.t=e.target.value.replace(/[^a-zA-Z0-9 !:()]/g,'').slice(0,40);
+  else if(id=='fg')m.f=e.target.value.slice(1);
+  else if(id=='bg')m.b=e.target.value.slice(1);
+  else return;
+  push(sel,'&show=1');
+};
+async function refresh(full){
+  if(!dev||!dev.gatt.connected)return;
+  try{
+    if(full){st=await pull();ok(1);list();return}
+    const h=await rd(-1);ok(1);
+    if(sel<0&&(h.cur!=st.cur||h.bri!=st.bri)){st.cur=h.cur;st.bri=h.bri;list()}else st.cur=h.cur;
+  }catch(e){ok(0)}
+}
+function anim(t){if(sel>=0)band($('#pv'),st.m[sel],t*SP[st.m[sel].v]);requestAnimationFrame(anim)}
+gate();setInterval(()=>refresh(),3000);requestAnimationFrame(anim);
+</script></body></html>
